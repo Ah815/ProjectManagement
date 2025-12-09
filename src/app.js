@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-
+import healthCheck from './routes/healthCheck.js';
 const app = express();
 
 // basic configurations
@@ -22,9 +22,15 @@ app.use(
   })
 );
 
+app.use("/api/v1/healthcheck", healthCheck);
+
+
 // Sample route
 app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
+
+
+
 
 export default app;
