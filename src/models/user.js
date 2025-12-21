@@ -4,110 +4,115 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 const userSchema = new Schema(
-    {
-        avtar: {
-            type: {
-                url: String,
-                localPath: String
-            },
-            default: {
-                url: `https://placehold.co/600x400`,
-                localPath: ""
-            }
-        },
-        username: {
-            type: String,
-            required: true,
-            unique: true,
-            trim: true,
-            lowercase: true,
-            index: true
-        },
-        email: {
-            type: String,
-            required: true,
-            unique: true,
-            trim: true,
-            lowercase: true,
-            index: true
-        },
-        fullName: {
-            type: String,
-            trim: true
-        },
-        password: {
-            type: String,
-            required: [true, "Password is required"]
-        },
-        isEmailVerified: {
-            type: Boolean,
-            default: false
-        },
-        refreshTokens: {
-            type: String,
-        },
-        forgetPasswordToken: {
-            type: String
-        },
-        forgetPasswordTokenExpiry: {
-            type: Date
-        },
-        emailVerificationToken: {
-            type: String
-        },
-        emailVerificationExpiry: {
-            type: Date
-        }
+  {
+    avatar: {
+      type: {
+        url: String,
+        localPath: String,
+      },
+      default: {
+        url: "https://placehold.co/600x400",
+        localPath: "",
+      },
     },
-    {
-        timestamps: true
-    }
-)
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
+    fullName: {
+      type: String,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    refreshToken: {
+      type: String,
+    },
+    forgotPasswordToken: {
+      type: String,
+    },
+    forgotPasswordTokenExpiry: {
+      type: Date,
+    },
+    emailVerificationToken: {
+      type: String,
+    },
+    emailVerificationExpiry: {
+      type: Date,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-userSchema.pre("save", async function (next) {
-    if (!this.isModified("password"))
-        return next();
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+/* 🔐 Password Hash Middleware (CORRECT) */
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  this.password = await bcrypt.hash(this.password, 10);
 });
 
+/* 🔑 Compare Password */
 userSchema.methods.isPasswordCorrect = async function (password) {
-    return await bcrypt.compare(password, this.password);
-}
+  return bcrypt.compare(password, this.password);
+};
 
+/* 🎟️ Access Token */
 userSchema.methods.generateAccessToken = function () {
-    return jwt.sign(
-        {
-            _id: this._id,
-            email: this.email,
-            username: this.username
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
-    )
-}
+  return jwt.sign(
+    {
+      _id: this._id,
+      email: this.email,
+      username: this.username,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    }
+  );
+};
 
+/* 🔁 Refresh Token */
 userSchema.methods.generateRefreshToken = function () {
-    return jwt.sign(
-        {   
-            _id: this._id,
-        },
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
-    )
-}
+  return jwt.sign(
+    { _id: this._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    }
+  );
+};
 
+/* ⏳ Temporary Token (Email / Forgot Password) */
 userSchema.methods.generateTemporaryToken = function () {
-    const unHashedToken = crypto.randomBytes(20).toString("hex");
+  const unHashedToken = crypto.randomBytes(20).toString("hex");
 
-    const hashedToken = crypto
+  const hashedToken = crypto
     .createHash("sha256")
     .update(unHashedToken)
     .digest("hex");
 
-    const expiry = Date.now() + (10 * 60 * 1000); // 10 minutes
-    return { unHashedToken, hashedToken, tokenExpiry };
-}
+  const tokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
 
+  return { unHashedToken, hashedToken, tokenExpiry };
+};
 
 export const User = mongoose.model("User", userSchema);
